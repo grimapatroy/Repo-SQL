@@ -167,6 +167,7 @@ INTO clientes
 FROM Customers
 GO
 
+
 SELECT C.CustomerID,C.CompanyName,C.ContactName,c.ContactName,C.Country,O.OrderID, O.OrderDate
       FROM clientes as C
       INNER JOIN Ordenes as O 
@@ -192,3 +193,97 @@ BEGIN
       SET @i +=2
 
 END
+
+
+
+
+
+SELECT * 
+FROM Products
+
+-- para pedir informacion de la columna de la tabla
+EXEC sp_columns  Products
+
+-- ---------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+
+-- Modulo 10
+-- Subconsultas
+--  ( El conjunto resultante del parentesis es vuelto a consultar, este resultado puede ser ecalar,multivaluadas o con valores de tabla(vista)) 
+-- la subconsulta siempre debe llevar un alias
+-- ---------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+      -- Sub consultas Independientes o autonomas
+
+            -- subconsulta de multiples valores
+            SELECT T.CompanyName,T.Total FROM
+            (SELECT C.CustomerID,C.CompanyName,C.Country,O.OrderID,O.OrderDate
+                  ,P.ProductName,D.UnitPrice,D.Quantity
+                  ,(D.UnitPrice*D.Quantity)as Total
+            FROM Customers as C INNER JOIN Orders as O
+            ON c.CustomerID = O.CustomerID INNER JOIN [Order Details] as D 
+            ON o.OrderID = D.OrderID INNER JOIN Products as P 
+            ON D.ProductID = P.ProductID)as T
+            GO
+
+            -- subconsulta escalares
+                  --  devuelve un unico valor , y lus puedes usar donde se use una expresion de un solo valor como : SELECT , where ,etc
+                  -- utilizar los resultados de la sub consulta como filtro en un where de otra sonsulta
+                  -- tener cuidado si la subconsulta devuelve NULL , la colsultageneral devolvera NULL
+                  SELECT * FROM Customers as C
+                  WHERE C.CustomerID in
+                  (SELECT DISTINCT CustomerID FROM Orders)
+
+                  -- Subquery devuelto como un escalar calculando fila por fila y usando en un select
+                  SELECT P.ProductName, P.UnitPrice,
+                  (SELECT AVG(UnitPrice) FROM Products) as Average,
+                  (SELECT AVG(UnitPrice) FROM Products) - UnitPrice as Varianza
+                   FROM Products as P
+      -- ---------------------------------------------------------------------------
+      -- ---------------------------------------------------------------------------
+      -- Subconsultas Correalcionadas
+            -- ejemplo:devuelveme todas las ordenes donde se pidieron mas de 20 unidades del producto 23
+            -- esto va a permitir que cada fila de la consulta interna se filte por cada fila de la consulta interna
+            -- ademas vinculandolos por una consicion de reunion JOIN
+            SELECT O.CustomerID,O.OrderID,O.OrderDate FROM Orders as O
+            WHERE
+            ( 
+            SELECT D.Quantity FROM [Order Details] as D
+            WHERE D.ProductID = 23 AND O.OrderID=D.OrderID
+            )>20
+            GO
+
+            -- para probar que del productoID = 23 la cantidad >20
+            SELECT * FROM [Order Details] as O WHERE  O.OrderID = 10869
+
+            
+            -- Subquery con resultados de multiplees valores
+            SELECT C.CompanyName, C.Country ,C.CompanyName
+            FROM Customers as C WHERE C.CustomerID IN
+            (SELECT DISTINCT CustomerID FROM Orders )
+            GO
+            
+            --  existis ( returne TRUE O FALSE) evalua toda la consulta interna del SELECT *
+                  -- ..sin condicion de reunion con existis (sin parametro en comun)
+                  -- si almenos la consulta interna devuelve un dato se ejecuta la consulta externa, es por eso que me lista los 91 clientes
+                  SELECT C.CompanyName, C.Country , C.ContactName
+                  FROM Customers as C WHERE EXISTS
+                  (SELECT O.CustomerID FROM Orders as O )
+                  GO
+                  
+                  -- con condicion de reunion con existis (con parametro en comun)
+                  -- para que aya reunion las tablas tiene que tener un alias
+                  -- si la consulta interna no devuleve por lo menos un dato, la consulta externa no muestra nada
+                  SELECT C.CompanyName, C.Country , C.ContactName
+                  FROM Customers as C WHERE EXISTS
+                  (SELECT O.CustomerID FROM Orders as O 
+                  WHERE C.CustomerID=O.CustomerID)
+                  GO
+
+                  -- quienes nunca han echo una orden
+                  SELECT C.CompanyName, C.Country , C.ContactName
+                  FROM Customers as C WHERE NOT EXISTS
+                  (SELECT O.CustomerID FROM Orders as O 
+                  WHERE C.CustomerID=O.CustomerID)
+                  GO
+
